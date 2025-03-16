@@ -4,6 +4,7 @@
 ## ✨ Features
 - **Drop-in replacement** for Pandas functions, now supporting **async functions**.
 - **Automatic async execution** with **controlled concurrency** via `max_parallel`.
+- **Built-in error handling** – choose between raising, ignoring, or logging errors. 
 - **Supports tqdm** for real-time progress tracking.
 
 ---
@@ -25,6 +26,62 @@ async def f(x):
 # Apply the async function to the DataFrame column
 df['y'] = await df.x.amap(f, max_parallel=5)  # Default max_parallel=16
 print(df)
+```
+
+## ⚠️ Handling Errors Gracefully
+
+aiopandas includes built-in error handling, allowing you to manage failures without breaking the entire operation.
+
+1. Default behavior (raise) – stops on the first error
+
+```python
+async def f(x):
+    if x > 50 and x % 3:
+        raise Exception('exception example')
+    await asyncio.sleep(0.1 * x)
+    return x
+
+df['y'] = await df.x.amap(f, max_parallel=100)  # Raises an exception
+```
+Output (Error traceback):
+```
+Exception: exception example
+```
+
+2. Ignore errors (on_error='ignore')
+```python
+df['y'] = await df.x.amap(f, max_parallel=100, on_error='ignore')  # Easy to ignore exceptions
+```
+
+Now, instead of crashing, rows that trigger exceptions return NaN:
+
+```python
+print(df['y'])
+```
+```
+0      0.0
+1      1.0
+2      2.0
+...
+95     NaN
+96    96.0
+97     NaN
+98     NaN
+99    99.0
+Name: y, Length: 100, dtype: float64
+```
+3. Custom error handling (on_error=print)
+
+You can log or process errors with a custom function (or coroutines):
+```python
+df['y'] = await df.x.amap(f, max_parallel=100, on_error=print)  # Print errors instead of failing
+```
+
+Output:
+```
+exception example
+exception example
+exception example
 ```
 
 ## 📊 Progress Tracking with tqdm
