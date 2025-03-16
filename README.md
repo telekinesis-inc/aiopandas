@@ -113,9 +113,9 @@ Example output:
 pip install aiopandas
 ```
 
-Or, if using manually:
+Or, install it manually:
 ```sh
-git clone https://github.com/your-repo/aiopandas.git
+git clone https://github.com/telekinesis-inc/aiopandas.git
 cd aiopandas
 pip install .
 ```
