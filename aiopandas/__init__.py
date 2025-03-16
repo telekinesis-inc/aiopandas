@@ -158,7 +158,8 @@ def inner_generator(df_function='apply'):
         try:
             return await asyncio.gather(*list(getattr(df, df_function)(wrapper, **kwargs)))
         finally:
-            pass
+            if tqdm is not None:
+                t.close()
 
     return inner
 
