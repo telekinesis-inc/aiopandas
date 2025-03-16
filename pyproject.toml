@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiopandas"
-version = "0.0.1"
+version = "0.0.2"
 description = "Lightweight Pandas monkey-patch for async map, apply, transform, etc."
 readme = "README.md"
 requires-python = ">=3.7"

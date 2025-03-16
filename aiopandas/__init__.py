@@ -47,22 +47,34 @@ except ImportError:
         PanelGroupBy = None
 
 def inner_generator(df_function='apply'):
-    async def inner(df, async_func, *args, max_parallel=15, tqdm=None, tqdm_kwargs=None, **kwargs):
+    async def inner(df, async_func, *args, max_parallel=16, on_error='raise', tqdm=None, tqdm_kwargs=None, **kwargs):
         """
         Parameters
         ----------
-        df  : (DataFrame|Series)[GroupBy]
-            Data (may be grouped).
-        async_func  : async function
-            To be applied on the (grouped) data.
-        max_parallel: int
-            Max number of parallel executions of the async function
-        tqdm: tqdm class| None
-            Optional tqdm (from tqdm import tqdm) class used to show a progress bar
-        tqdm_kwargs: dict | None
-            tqdm kwargs used to instantiate tqdm object (if used)
-        **kwargs  : optional
-            Transmitted to `df.apply()`.
+        df : DataFrame | Series | GroupBy
+            The input data, which may be grouped.
+
+        async_func : async function
+            An asynchronous function to be applied to each (grouped) element of `df`.
+
+        max_parallel : int
+            Maximum number of concurrent executions of `async_func`. Default is `16`.
+
+        on_error : {'raise', 'ignore'} | function | coroutine
+            Specifies how to handle errors:
+            - `'raise'`: Raises the exception and stops further executions.
+            - `'ignore'`: Ignores the exception and returns `None` for the corresponding element.
+            - Function or coroutine: Called with the exception as an argument. If this handler raises an exception, 
+              execution stops, and the error propagates.
+
+        tqdm : tqdm class | None, optional
+            A `tqdm` class (from `tqdm import tqdm`) used to display a progress bar. Default is `None` (no progress bar).
+
+        tqdm_kwargs : dict | None, optional
+            Keyword arguments passed to the `tqdm` instance if `tqdm` is used.
+
+        **kwargs : dict, optional
+            Additional arguments passed to `df.apply()`.
         """
 
 
@@ -113,13 +125,34 @@ def inner_generator(df_function='apply'):
             pass
 
         semaphore = asyncio.Semaphore(max_parallel)
+        stop_event = asyncio.Event()
 
         async def wrapper(*args, **kwargs):
             async with semaphore:
-                out = await async_func(*args, **kwargs)
-                if tqdm is not None:
-                    t.update(n=1 if not t.total or t.n < t.total else 0)
-                return out
+                if not stop_event.is_set():
+                    out = None
+                    try:
+                        out = await async_func(*args, **kwargs)
+                    except Exception as e:
+                        if on_error == 'raise':
+                            stop_event.set()
+                            raise e
+                        if on_error == 'ignore':
+                            pass
+
+                        if callable(on_error):
+                            try:
+                                if asyncio.iscoroutinefunction(on_error):
+                                    out = await on_error(e)
+                                else:
+                                    out = on_error(e)
+                            except Exception as handler_error:
+                                stop_event.set()
+                                raise handler_error
+
+                    if tqdm is not None:
+                        t.update(n=1 if not t.total or t.n < t.total else 0)
+                    return out
 
         # Apply the provided function (in **kwargs)
         try:
@@ -130,7 +163,6 @@ def inner_generator(df_function='apply'):
     return inner
 
 # Monkeypatch pandas to provide easy methods
-# Enable custom tqdm progress in pandas!
 Series.aapply = inner_generator()
 SeriesGroupBy.aapply = inner_generator()
 Series.amap = inner_generator('map')
@@ -156,3 +188,4 @@ if Rolling is not None and Expanding is not None:
     Expanding.aapply = inner_generator()
 elif _Rolling_and_Expanding is not None:
     _Rolling_and_Expanding.aapply = inner_generator()
+
