@@ -38,10 +38,12 @@ aiopandas includes built-in error handling, allowing you to manage failures with
 async def f(x):
     if x > 50 and x % 3:
         raise Exception('exception example')
-    await asyncio.sleep(0.1 * x)
+    await asyncio.sleep(0.01 * x)
     return x
 
-df['y'] = await df.x.amap(f, max_parallel=100)  # Raises an exception
+df = pd.DataFrame({'x': range(100)})
+
+df['y'] = await df.x.amap(f, max_parallel=50)  # Raises an exception
 ```
 Output (Error traceback):
 ```
@@ -50,7 +52,7 @@ Exception: exception example
 
 2. Ignore errors (on_error='ignore')
 ```python
-df['y'] = await df.x.amap(f, max_parallel=100, on_error='ignore')  # Easy to ignore exceptions
+df['y'] = await df.x.amap(f, max_parallel=50, on_error='ignore')  # Easy to ignore exceptions
 ```
 
 Now, instead of crashing, rows that trigger exceptions return NaN:
@@ -74,7 +76,7 @@ Name: y, Length: 100, dtype: float64
 
 You can log or process errors with a custom function (or coroutines):
 ```python
-df['y'] = await df.x.amap(f, max_parallel=100, on_error=print)  # Print errors instead of failing
+df['y'] = await df.x.amap(f, max_parallel=50, on_error=print)  # Print errors instead of failing
 ```
 
 Output:
@@ -82,6 +84,7 @@ Output:
 exception example
 exception example
 exception example
+...
 ```
 
 ## 📊 Progress Tracking with tqdm
