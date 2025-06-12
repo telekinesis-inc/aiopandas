@@ -156,7 +156,11 @@ def inner_generator(df_function='apply'):
 
         # Apply the provided function (in **kwargs)
         try:
-            return await asyncio.gather(*list(getattr(df, df_function)(wrapper, **kwargs)))
+            if df_function == 'apply' and isinstance(df, DataFrame) and kwargs.get('axis', 0) == 1:
+                coros = [wrapper(row) for _, row in df.iterrows()]
+            else:
+                coros = list(getattr(df, df_function)(lambda x: wrapper(x), **kwargs))
+
         finally:
             if tqdm is not None:
                 t.close()
