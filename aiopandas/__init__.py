@@ -133,7 +133,10 @@ def inner_generator(df_function='apply'):
                     out = None
                     try:
                         out = await async_func(*args, **kwargs)
-                    except Exception as e:
+                    except BaseException as e:
+                        if isinstance(e, (KeyboardInterrupt, SystemExit)):
+                            stop_event.set()
+                            raise  # re-raise critical signals immediately
                         if on_error == 'raise':
                             stop_event.set()
                             raise e
